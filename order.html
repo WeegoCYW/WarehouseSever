@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>訂單管理</title>
+    <style>
+        /* 訂單頁面全域與主要佈局樣式 */
+        body {
+            font-family: 'Noto Sans TC', 'Arial', sans-serif;
+            margin: 0;
+            background-color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        /* 整個儀表板容器，使用 Grid 來建立三欄佈局 */
+        .order-dashboard {
+            display: grid;
+            grid-template-columns: 220px 1fr 300px; /* 左側、中間、右側的寬度 */
+            gap: 20px;
+            width: 100%;
+            max-width: 1500px;
+            background-color: #f0f0f0;
+        }
+
+        /* 左側導覽列樣式 */
+        .sidebar {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .sidebar-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+            border-bottom: 2px solid #ddd;
+            padding-bottom: 5px;
+        }
+
+        .sidebar-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background-color 0.3s, color 0.3s;
+            font-size: 1em;
+            color: #555;
+            text-decoration: none;
+            display: block;
+        }
+
+        .sidebar-item:hover, .sidebar-item.active {
+            background-color: #007bff;
+            color: white;
+            font-weight: bold;
+        }
+
+        /* 中間與右側的容器 */
+        .main-content {
+            grid-column: 2 / 4; /* 讓主內容區佔據中間和右側兩欄 */
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* 訂單管理主標題 */
+        .order-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 10px;
+        }
+
+        .order-header .header-title {
+            font-size: 2.0em;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .header-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .header-buttons a, .header-buttons button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            font-weight: bold;
+            transition: background-color 0.3s;
+            cursor: pointer;
+        }
+
+        .header-buttons a:hover, .header-buttons button:hover {
+            background-color: #0056b3;
+        }
+        
+        .header-buttons a.back-button {
+            background-color: #6c757d;
+        }
+
+        .header-buttons a.back-button:hover {
+            background-color: #5a6268;
+        }
+
+        /* 訂單清單與庫存資訊的容器，使用 Grid 佈局 */
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 20px;
+        }
+
+        /* 訂單列表容器 */
+        .order-list-container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 新增的表格樣式 */
+        .order-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9em;
+        }
+        
+        .order-table th, .order-table td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .order-table thead {
+            background-color: #f2f2f2;
+        }
+
+        /* 讓表格內部的文字可以自動換行 */
+        .order-table td {
+            white-space: normal;
+        }
+        
+        /* 增加表格列之間的間距 */
+        .order-table tr {
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        /* 讓品名等欄位能夠多行顯示 */
+        .order-table .product-details,
+        .order-table .product-details ul {
+            padding: 0;
+            margin: 0;
+        }
+
+        .order-table .product-details li {
+            list-style: none;
+            margin-bottom: 5px;
+        }
+
+
+        /* 右側庫存資訊區塊 */
+        .inventory-info-container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .inventory-section {
+            padding: 15px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+        }
+        
+        .inventory-section h4 {
+            margin: 0 0 10px 0;
+            font-size: 1.1em;
+            color: #333;
+            border-bottom: 1px dashed #ccc;
+            padding-bottom: 5px;
+        }
+
+        .total-weight, .received-weight {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #28a745;
+        }
+
+        .detail-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9em;
+        }
+
+        .detail-table th, .detail-table td {
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+            text-align: left;
+        }
+
+        .detail-table th {
+            font-weight: bold;
+            color: #777;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="order-dashboard">
+        <!-- 左側導覽列 -->
+        <div class="sidebar">
+            <a href="index.html" class="sidebar-item">返回料桶分布圖</a>
+            <h3 class="sidebar-title">依地區分類</h3>
+            <a href="#" class="sidebar-item active">全部</a>
+            <a href="#" class="sidebar-item">自選</a>
+            <a href="#" class="sidebar-item">台南佳里</a>
+            <a href="#" class="sidebar-item">台南市</a>
+            <a href="#" class="sidebar-item">善化</a>
+            <a href="#" class="sidebar-item">高雄</a>
+            <a href="#" class="sidebar-item">屏東</a>
+            <h3 class="sidebar-title">訂單管理</h3>
+            <a href="sale.html" class="sidebar-item">銷售單</a>
+            <a href="#" class="sidebar-item">現場急備貨單</a>
+            <a href="#" class="sidebar-item">製作備貨單</a>
+        </div>
+
+        <!-- 中間與右側主內容 -->
+        <div class="main-content">
+            <!-- 頂部標題與按鈕 -->
+            <div class="order-header">
+                <div class="header-title">訂單管理</div>
+                <div class="header-buttons">
+                    <button>新增訂單</button>
+                    <button>今日訂單</button>
+                    <button>歷史訂單</button>
+                    <button>搜尋</button>
+                </div>
+            </div>
+
+            <div class="content-grid">
+                <!-- 中間訂單列表 -->
+                <div class="order-list-container">
+                    <table class="order-table">
+                        <thead>
+                            <tr>
+                                <th>配送時間</th>
+                                <th>距離</th>
+                                <th>地區</th>
+                                <th>廠商</th>
+                                <th>總計包數</th>
+                                <th>品名</th>
+                                <th>公斤</th>
+                                <th>數量</th>
+                                <th>換算件數</th>
+                                <th>規格備註</th>
+                                <th>銷售方式</th>
+                                <th>單價</th>
+                                <th>總價</th>
+                                <th>總/剩餘數量</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- 訂單資料範例 -->
+                            <tr>
+                                <td>2025/05/17</td>
+                                <td>53公里</td>
+                                <td>台南佳里</td>
+                                <td>永盛米行</td>
+                                <td>150包</td>
+                                <td class="product-details">
+                                    <ul>
+                                        <li>白米</li>
+                                        <li>111-1 蓬萊米</li>
+                                        <li>蓬萊白米</li>
+                                    </ul>
+                                </td>
+                                <td>
+                                    <ul>
+                                        <li>30公斤</li>
+                                        <li>30公斤</li>
+                                        <li>50公斤</li>
+                                    </ul>
+                                </td>
+                                <td>
+                                    <ul>
+                                        <li>150包</li>
+                                        <li>42包</li>
+                                        <li>100包</li>
+                                    </ul>
+                                </td>
+                                <td>
+                                    <ul>
+                                        <li>...</li>
+                                        <li>...</li>
+                                        <li>20件</li>
+                                    </ul>
+                                </td>
+                                <td>
+                                    <ul>
+                                        <li>...</li>
+                                        <li>...</li>
+                                        <li>...</li>
+                                    </ul>
+                                </td>
+                                <td>現金</td>
+                                <td>15000</td>
+                                <td>15000</td>
+                                <td>1000/250</td>
+                            </tr>
+                             <!-- 第二筆訂單資料範例 -->
+                            <tr>
+                                <td>2025/05/17</td>
+                                <td>103公里</td>
+                                <td>台南佳里</td>
+                                <td>級發米行</td>
+                                <td>150包</td>
+                                <td class="product-details">
+                                    <ul>
+                                        <li>白米</li>
+                                        <li>111-1 蓬萊米</li>
+                                        <li>蓬萊白米</li>
+                                    </ul>
+                                </td>
+                                <td>
+                                    <ul>
+                                        <li>30公斤</li>
+                                        <li>30公斤</li>
+                                        <li>50公斤</li>
+                                    </ul>
+                                </td>
+                                <td>
+                                    <ul>
+                                        <li>150包</li>
+                                        <li>42包</li>
+                                        <li>100包</li>
+                                    </ul>
+                                </td>
+                                <td>
+                                    <ul>
+                                        <li>...</li>
+                                        <li>...</li>
+                                        <li>20件</li>
+                                    </ul>
+                                </td>
+                                <td>
+                                    <ul>
+                                        <li>...</li>
+                                        <li>...</li>
+                                        <li>...</li>
+                                    </ul>
+                                </td>
+                                <td>匯款</td>
+                                <td>15000</td>
+                                <td>15000</td>
+                                <td>1000/250</td>
+                            </tr>
+                            <!-- 可以根據需求添加更多訂單資料 -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 右側庫存資訊 -->
+                <div class="inventory-info-container">
+                    <div class="inventory-section">
+                        <h4>總重量</h4>
+                        <div class="total-weight">1800公斤</div>
+                    </div>
+                    <div class="inventory-section">
+                        <h4>已領取總計包數</h4>
+                        <div class="received-weight">600包</div>
+                        <small> (總量 2000公斤)</small>
+                    </div>
+                    <div class="inventory-section">
+                        <h4>詳細包數</h4>
+                        <table class="detail-table">
+                            <thead>
+                                <tr>
+                                    <th>品名</th>
+                                    <th>數量</th>
+                                    <th>備註</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>(母)蓬萊白米</td>
+                                    <td>30公斤 150包</td>
+                                    <td>/0</td>
+                                </tr>
+                                <tr>
+                                    <td>(倉)蓬萊白米</td>
+                                    <td>30公斤 150包</td>
+                                    <td>/0</td>
+                                </tr>
+                                <tr>
+                                    <td>蓬萊白米</td>
+                                    <td>30公斤 42包</td>
+                                    <td>/2500</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="inventory-section">
+                        <h4>總存量</h4>
+                        <p>...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

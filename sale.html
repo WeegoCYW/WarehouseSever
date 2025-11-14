@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>銷售單</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <!-- 載入 Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Arial', 'Noto Sans TC', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            /* 允許內容在抽屜滑出時不被截斷 */
+            position: relative;
+            min-height: 100vh;
+        }
+        .sale-form-container {
+            width: 100%;
+            max-width: 1200px;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #ccc;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .header .title {
+            font-size: 2em;
+            font-weight: bold;
+            color: #333;
+        }
+        .toolbar {
+            display: flex;
+            gap: 5px;
+        }
+        .toolbar button {
+            background: none;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 5px 10px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .toolbar button:hover {
+            background-color: #f0f0f0;
+        }
+        .toolbar button i {
+            font-size: 1.2em;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .info-item {
+            position: relative; /* 為了讓查詢結果浮動顯示 */
+            display: flex;
+            flex-direction: column;
+        }
+        .info-item label {
+            font-weight: bold;
+            color: #555;
+            margin-bottom: 5px;
+        }
+        .info-item input, .info-item select {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        /* 客戶查詢結果浮動區 - 單獨放在一個容器中，並覆蓋整個查詢區域 */
+        #customer-query-container {
+            position: relative;
+            grid-column: 1 / -1; /* 讓容器跨越所有欄位 */
+            margin-top: -10px; /* 拉近與輸入框的距離 */
+        }
+        #customer-results {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 10;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+            max-height: 250px;
+            overflow-y: auto;
+            display: none; /* 預設隱藏 */
+            padding: 5px 0;
+        }
+        .result-item {
+            padding: 8px 10px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+            font-size: 0.9em;
+        }
+        .result-item:last-child {
+            border-bottom: none;
+        }
+        .result-item:hover {
+            background-color: #e6f7ff;
+        }
+        .result-item strong {
+            color: #007bff;
+            margin-right: 10px;
+        }
+
+        .table-section {
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin-bottom: 20px;
+            margin-top: 30px; /* 留出空間給查詢結果 */
+        }
+        .product-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .product-table th, .product-table td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: center;
+            white-space: nowrap;
+        }
+        .product-table thead th {
+            background-color: #e9e9e9;
+            font-weight: bold;
+            color: #333;
+        }
+        .product-table tbody tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .product-table input {
+            width: 90%;
+            border: 1px solid #ccc;
+            padding: 5px;
+            text-align: center;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .summary-total {
+            background-color: #f0f0f0;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .summary-total .row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .summary-total .row label {
+            font-weight: bold;
+        }
+        .summary-total .row input {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .payment-options {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .payment-options button {
+            padding: 10px 15px;
+            border: none;
+            background-color: #007bff;
+            color: #fff;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .payment-options button:hover {
+            background-color: #0056b3;
+        }
+        .note-section {
+            margin-top: 20px;
+        }
+        .note-section h4 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .note-section p {
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 5px;
+            line-height: 1.6;
+        }
+        #custom-message-box {
+            /* 訊息提示框樣式 (取代 alert()) */
+            position: fixed; top: 10px; right: 10px; z-index: 1000;
+            padding: 15px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            color: white; font-weight: bold; transition: opacity 0.5s; opacity: 0;
+            pointer-events: none;
+        }
+
+        /* --- 商品查詢抽屜樣式 (Product Drawer) --- */
+        #product-drawer {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 100%;
+            max-width: 450px; /* 寬度限制 */
+            height: 100%;
+            background: white;
+            box-shadow: -4px 0 10px rgba(0, 0, 0, 0.1);
+            transform: translateX(100%);
+            transition: transform 0.3s ease-in-out;
+            z-index: 50;
+        }
+        #product-drawer.open {
+            transform: translateX(0);
+        }
+        
+        /* 列表樣式 */
+        .product-item-container {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+            background-color: #f9fafb;
+        }
+        .unit-button {
+            transition: all 0.15s;
+            cursor: pointer;
+        }
+        .unit-button:hover {
+            background-color: #d1d5db;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+            transform: translateY(-1px);
+        }
+        
+        /* Print Template Styles - 保持不變 */
+        @media print {
+            body > *:not(.print-document) { display: none; }
+            .print-document {
+                display: block !important;
+                font-family: 'Arial', 'Noto Sans TC', sans-serif;
+                font-size: 12px;
+                width: 100%; margin: 0; padding: 0;
+            }
+            .print-document table { width: 100%; border-collapse: collapse; }
+            .print-document th, .print-document td { border: 1px solid black; padding: 5px; text-align: left; }
+            .print-document .info-row td { border: none; padding: 0; }
+            .print-document .info-row td:first-child { width: 50%; }
+            .print-document .info-item { display: flex; justify-content: space-between; margin-bottom: 5px; }
+            .print-document .info-item span { font-weight: bold; }
+            .print-document .footer-info td { border: none; padding-top: 20px; }
+        }
+        .print-document { display: none; padding: 20px; }
+    </style>
+</head>
+<body>
+    <div id="custom-message-box"></div> <!-- 訊息提示框 -->
+    <div class="sale-form-container">
+        <div class="header">
+            <div class="toolbar">
+                <button onclick="addRow()"><i class="fas fa-plus"></i> 新增</button>
+                <button onclick="saveDocument()"><i class="fas fa-save"></i> 儲存</button>
+                <button onclick="printSaleDocument()"><i class="fas fa-print"></i> 列印</button>
+                <button><i class="fas fa-search"></i> 查詢</button>
+            </div>
+            <div class="title">銷售單</div>
+            <div class="toolbar">
+                <button onclick="location.href='order.html'">返回訂單管理</button>
+            </div>
+        </div>
+
+        <div class="info-grid">
+            <div class="info-item">
+                <label for="document-date">單據日期:</label>
+                <input type="date" id="document-date">
+            </div>
+            <div class="info-item">
+                <label for="document-number">單據編號:</label>
+                <input type="text" id="document-number">
+            </div>
+            
+            <!-- 客戶編號 - 新增 oninput 事件 -->
+            <div class="info-item">
+                <label for="customer-id">客戶編號:</label>
+                <input type="text" id="customer-id" oninput="searchCustomer()">
+            </div>
+            
+            <!-- 客戶名稱 - 新增 oninput 事件 -->
+            <div class="info-item">
+                <label for="customer-name">客戶名稱:</label>
+                <input type="text" id="customer-name" oninput="searchCustomer()">
+            </div>
+            
+            <!-- 客戶電話 - oninput 事件已保留 -->
+            <div class="info-item">
+                <label for="customer-phone">客戶電話:</label>
+                <input type="tel" id="customer-phone" oninput="searchCustomer()">
+            </div>
+            
+            <!-- 送貨地址 - 新增 oninput 事件 -->
+            <div class="info-item">
+                <label for="delivery-address">送貨地址:</label>
+                <input type="text" id="delivery-address" oninput="searchCustomer()">
+            </div>
+            
+            <!-- 其他欄位保持不變 -->
+            <div class="info-item">
+                <label for="delivery-person">送貨員:</label>
+                <input type="text" id="delivery-person">
+            </div>
+            <div class="info-item">
+                <label for="creator">製單人員:</label>
+                <input type="text" id="creator">
+            </div>
+            <div class="info-item">
+                <label for="invoice-number">發票號碼:</label>
+                <input type="text" id="invoice-number">
+            </div>
+        </div>
+
+        <!-- 查詢結果浮動顯示區 - 移到 info-grid 之外，並跨越所有欄位 -->
+        <div id="customer-query-container">
+            <div id="customer-results"></div> 
+        </div>
+
+        <div class="table-section">
+            <table class="product-table" id="product-table">
+                <thead>
+                    <tr>
+                        <th style="width: 5%;">序</th>
+                        <th style="width: 9%;">貨品編號</th>
+                        <th style="width: 11%;">日期</th>
+                        <th style="width: 25%;">品名</th>
+                        <th style="width: 7%;">數量</th>
+                        <th style="width: 11%;">單價</th>
+                        <th style="width: 11%;">銷貨小計</th>
+                        <th style="width: 12%;">銷售方式</th>
+                        <th style="width: 10%;">附註</th>
+                        <th style="width: 5%;">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>1</td>
+                        <td><input type="text" class="item-code"></td>
+                        <td><input type="text" class="item-date"></td>
+                        <td><input type="text" class="item-name"></td>
+                        <td><input type="number" class="item-quantity" value="0" min="0" oninput="updateCalculations()"></td>
+                        <td><input type="number" class="item-price" value="0" min="0" oninput="updateCalculations()"></td>
+                        <td><input type="number" class="item-subtotal" value="0" readonly></td>
+                        <td><input type="text" class="item-math"></td>
+                        <td><input type="text" class="item-note"></td>
+                        <td><button onclick="deleteRow(this)" class="delete-row-btn" style="padding: 3px 6px; background: none; border: none; color: #ff0000; cursor: pointer;"><i class="fas fa-trash"></i></button></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="summary-grid">
+            <div class="summary-total">
+                <div class="row">
+                    <label>合計金額:</label>
+                    <input type="number" id="subtotal" value="0" readonly>
+                </div>
+                <div class="row">
+                    <label>扣除金額:</label>
+                    <input type="number" id="discount" value="0" oninput="updateCalculations()">
+                </div>
+                <div class="row">
+                    <label>應收金額:</label>
+                    <input type="number" id="grand-total" value="0" readonly>
+                </div>
+                <div class="payment-options">
+                    <button>現金</button>
+                    <button>匯款</button>
+                    <button>支票</button>
+                </div>
+            </div>
+            <div>
+                <div class="note-section">
+                    <h4>備註</h4>
+                    <p>請確認貨品數量及金額無誤，簽收後恕不退換。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 品項查詢抽屜 (新增) -->
+    <div id="product-drawer" class="product-drawer">
+        <div class="drawer-header">
+            <h3>品項選擇</h3>
+            <button class="drawer-close-btn" onclick="closeProductDrawer()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="drawer-search-bar">
+            <input type="text" id="product-search" placeholder="搜尋品名..." oninput="filterProducts()">
+        </div>
+        <div class="drawer-content" id="product-list">
+            <!-- 產品列表將在這裡載入 -->
+            <div style="text-align: center; padding: 20px; color: #777;">正在載入商品資料...</div>
+        </div>
+    </div>
+
+    <!-- 列印模板 (Print Document) - 保持不變 -->
+    <div class="print-document" id="print-document">
+        <h2 style="text-align: center; margin-bottom: 20px;">銷 售 單</h2>
+        <table class="info-table">
+            <tr class="info-row">
+                <td><span>客戶名稱：</span><span id="print-customer-name"></span></td>
+                <td><span>單據日期：</span><span id="print-document-date"></span></td>
+            </tr>
+            <tr class="info-row">
+                <td><span>客戶電話：</span><span id="print-customer-phone"></span></td>
+                <td><span>單據編號：</span><span id="print-document-number"></span></td>
+            </tr>
+            <tr class="info-row">
+                <td colspan="2"><span>送貨地址：</span><span id="print-delivery-address"></span></td>
+            </tr>
+        </table>
+        <table style="margin-top: 15px;">
+            <thead>
+                <tr>
+                    <th style="width: 5%;">序</th><th style="width: 15%;">貨品編號</th><th style="width: 30%;">品名</th>
+                    <th style="width: 10%;">數量</th><th style="width: 10%;">單價</th><th style="width: 15%;">銷貨小計</th>
+                    <th style="width: 15%;">附註</th>
+                </tr>
+            </thead>
+            <tbody id="print-table-body"></tbody>
+        </table>
+        <table style="margin-top: 20px; border: none;">
+            <tr class="info-row">
+                <td style="border: none; width: 50%;">合計金額：<span id="print-subtotal" style="font-weight: bold;"></span></td>
+                <td style="border: none; width: 50%;">扣除金額：<span id="print-discount"></span></td>
+            </tr>
+            <tr class="info-row">
+                <td style="border: none; font-size: 1.2em; color: #c00;">應收帳款：<span id="print-grand-total" style="font-weight: bold;"></span></td>
+                <td style="border: none;">備註：請確認貨品數量及金額無誤，簽收後恕不退換。</td>
+            </tr>
+        </table>
+        <table class="footer-info" style="margin-top: 50px;">
+            <tr>
+                <td style="border: none; width: 20%;">審核：</td>
+                <td style="border: none; width: 20%;">製單人員：<span id="print-creator"></span></td>
+                <td style="border: none; width: 20%;">會計：</td>
+                <td style="border: none; width: 20%;">送貨員：<span id="print-delivery-person"></span></td>
+                <td style="border: none; width: 20%;">簽收：</td>
+            </tr>
+        </table>
+    </div>
+
+    <script>
+        // --- API 端點設定 ---
+        const customerDataURL = "/api/customers";
+        const goodsDataURL = "/api/goods"; // 新增商品 API 端點
+
+        // --- 商品查詢相關全域變數 ---
+        let allGoodsData = []; // 儲存所有商品資料
+        let currentEditingRow = null; // 儲存目前正在編輯的表格行 (<tr>)
+
+        // --- 客戶查詢邏輯 ---
+
+        // 函式: 通用即時查詢客戶 (現在為非同步 Async 函式)
+        async function searchCustomer() {
+            // 獲取所有客戶相關的輸入值
+            const queryId = document.getElementById('customer-id').value.trim();
+            const queryName = document.getElementById('customer-name').value.trim();
+            const queryPhone = document.getElementById('customer-phone').value.trim();
+            const queryAddress = document.getElementById('delivery-address').value.trim();
+            
+            const resultsDiv = document.getElementById('customer-results');
+
+            // 如果所有查詢欄位都為空，則隱藏結果
+            if (queryId.length === 0 && queryName.length === 0 && queryPhone.length === 0 && queryAddress.length === 0) {
+                resultsDiv.style.display = 'none';
+                return;
+            }
+
+            // --- 構建 API 查詢參數 ---
+            const params = new URLSearchParams();
+            if (queryId) params.append('id_query', queryId);
+            if (queryName) params.append('name_query', queryName);
+            if (queryPhone) params.append('phone_query', queryPhone);
+            if (queryAddress) params.append('address_query', queryAddress);
+
+            const fullUrl = `${customerDataURL}?${params.toString()}`;
+
+            // 顯示載入中提示
+            resultsDiv.innerHTML = '<div class="p-2 text-center text-gray-500">正在查詢...</div>';
+            resultsDiv.style.display = 'block';
+
+            try {
+                // --- 發送非同步 API 請求 ---
+                const response = await fetch(fullUrl);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP 錯誤! 狀態: ${response.status}`);
+                }
+                
+                // API 返回的已經是經過後端快取過濾後的結果
+                const filteredCustomers = await response.json();
+
+                resultsDiv.innerHTML = ''; // 清空載入提示
+
+                if (filteredCustomers.length > 0) {
+                    filteredCustomers.forEach(customer => {
+                        const item = document.createElement('div');
+                        item.className = 'result-item p-2 border-b border-gray-200 cursor-pointer hover:bg-indigo-50';
+                        
+                        // 確保從 API 獲取的欄位名稱 ('id', 'name', 'phone', 'address') 與前端一致
+                        item.innerHTML = `
+                            <span style="min-width: 60px; display: inline-block;"><strong>ID:</strong> ${customer.id || ''}</span>
+                            <span style="min-width: 100px; display: inline-block;"><strong>名稱:</strong> ${customer.name || ''}</span>
+                            <span style="min-width: 120px; display: inline-block;"><strong>電話:</strong> ${customer.phone || ''}</span>
+                            <span><strong>地址:</strong> ${customer.address || ''}</span>
+                        `;
+                        
+                        // 點擊結果時，填充數據並隱藏結果框
+                        item.onclick = () => {
+                            fillCustomerData(customer);
+                        };
+                        resultsDiv.appendChild(item);
+                    });
+                    resultsDiv.style.display = 'block';
+                } else {
+                    resultsDiv.innerHTML = '<div class="p-2 text-center text-gray-500">找不到相符的客戶資料。</div>';
+                    resultsDiv.style.display = 'block'; // 顯示找不到結果的訊息
+                }
+            } catch (error) {
+                console.error('客戶查詢 API 發生錯誤:', error);
+                resultsDiv.innerHTML = `<div class="p-2 text-center text-red-600">查詢失敗: ${error.message}</div>`;
+                resultsDiv.style.display = 'block';
+            }
+        }
+
+        // 函式: 填充客戶資料到表單 (保持不變)
+        function fillCustomerData(customer) {
+            document.getElementById('customer-id').value = customer.id;
+            document.getElementById('customer-phone').value = customer.phone;
+            document.getElementById('customer-name').value = customer.name;
+            document.getElementById('delivery-address').value = customer.address;
+            
+            // 隱藏結果框
+            document.getElementById('customer-results').style.display = 'none'; 
+            // alertBox 假設是一個自定義的通知函數，這裡用 console.log 替代
+            // alertBox('客戶資料已載入！', 'success'); 
+            console.log('客戶資料已載入！', customer);
+        }
+        // 隱藏結果框
+        document.addEventListener('click', (event) => {
+            const resultsDiv = document.getElementById('customer-results');
+            const infoGrid = document.querySelector('.info-grid');
+            if (resultsDiv.style.display === 'block' && !infoGrid.contains(event.target) && !resultsDiv.contains(event.target)) {
+                resultsDiv.style.display = 'none';
+            }
+            
+            // 點擊客戶相關輸入框以外的區域，隱藏客戶查詢結果
+            const customerInputs = ['customer-id', 'customer-name', 'customer-phone', 'delivery-address'];
+            const isCustomerInput = customerInputs.some(id => event.target.id === id);
+            if (resultsDiv.style.display === 'block' && !isCustomerInput && !resultsDiv.contains(event.target)) {
+                resultsDiv.style.display = 'none';
+            }
+
+        });
+
+        // 注意: 確保您的 HTML input 欄位都綁定了 oninput="searchCustomer()" 事件，才能實現即時查詢效果。
+        // 並且 ID 必須是: 'customer-id', 'customer-name', 'customer-phone', 'delivery-address'
+
+        // --- 商品查詢邏輯 (新增) ---
+
+        // 函式: 獲取所有商品資料
+        async function fetchGoodsData() {
+            try {
+                const response = await fetch(goodsDataURL);
+                if (!response.ok) {
+                    throw new Error(`HTTP 錯誤! 狀態: ${response.status}`);
+                }
+                allGoodsData = await response.json();
+                console.log('商品資料載入成功:', allGoodsData.length, '筆');
+                console.log(allGoodsData);
+                renderProductList(allGoodsData); // 渲染初始列表
+            } catch (error) {
+                console.error('載入商品資料 API 發生錯誤:', error);
+                document.getElementById('product-list').innerHTML = `<div style="padding: 20px; color: red;">載入商品失敗: ${error.message}</div>`;
+            }
+        }
+
+        // =========================================================================
+        // 核心修正區：修正 renderProductList 實現多單位點擊
+        // =========================================================================
+
+        // 函式: 渲染商品列表
+        function renderProductList(products) {
+            const listDiv = document.getElementById('product-list');
+            listDiv.innerHTML = ''; // 清空列表
+            
+            if (products.length === 0) {
+                listDiv.innerHTML = '<div class="text-center p-5 text-gray-500 italic">找不到商品資料。</div>';
+                return;
+            }
+
+            products.forEach(product => {
+                // 1. 商品主容器
+                const productContainer = document.createElement('div');
+                productContainer.className = 'product-item-container shadow-md';
+                
+                // 產品名稱標題
+                const nameHeader = document.createElement('p');
+                nameHeader.className = 'text-lg font-bold text-gray-800 mb-2 border-b border-gray-200 pb-2';
+                nameHeader.textContent = product.name;
+                productContainer.appendChild(nameHeader);
+
+                // 單位列表容器
+                const unitsDiv = document.createElement('div');
+                // 使用 grid 讓單位按鈕整齊排列
+                unitsDiv.className = 'grid grid-cols-2 gap-2 mt-2';
+                
+                let unitFound = false;
+
+                // 2. 遍歷 unit1 到 unit9，為每個有效單位創建一個按鈕
+                for (let i = 1; i <= 9; i++) {
+                    const unitNameKey = 'unit' + i; // 'unit1', 'unit2', ...
+                    const unitValue = product[unitNameKey]; // 獲取對應的單位值 (例如: '30kg')
+
+                    // 檢查單位是否有值 (非空、非 null、非空白字串)
+                    if (unitValue && unitValue.toString().trim() !== '') { 
+                        unitFound = true;
+                        
+                        // 創建獨立的可點擊按鈕
+                        const unitButton = document.createElement('button');
+                        unitButton.className = 'unit-button px-3 py-2 bg-gray-200 text-gray-700 rounded-md font-semibold text-sm';
+                        
+                        // 顯示單位值 (例如: 30kg)
+                        unitButton.textContent = unitValue;
+                        
+                        // 將需要的資料綁定到 dataset (非常重要！)
+                        unitButton.dataset.productName = product.name;
+                        unitButton.dataset.unitName = unitNameKey; // unit1, unit2, ...
+                        unitButton.dataset.unitValue = unitValue; // 30kg, 15kg, ...
+                        // 可以選擇性地保留完整的 JSON 序列化，但這裡只需要單一單位資訊
+                        // unitButton.dataset.fullProduct = JSON.stringify(product); 
+
+                        // 3. 將點擊事件綁定到這個單位按鈕
+                        unitButton.onclick = (e) => selectProduct(e);
+
+                        unitsDiv.appendChild(unitButton);
+                    }
+                }
+                
+                if (!unitFound) {
+                     const noUnitMsg = document.createElement('p');
+                     noUnitMsg.className = 'text-gray-500 italic text-sm p-2 text-center';
+                     noUnitMsg.textContent = '此商品沒有可用的單位資訊。';
+                     unitsDiv.appendChild(noUnitMsg);
+                }
+
+                productContainer.appendChild(unitsDiv);
+                listDiv.appendChild(productContainer);
+            });
+        }
+
+        // 函式: 根據搜尋欄位過濾商品列表
+        function filterProducts() {
+            const query = document.getElementById('product-search').value.toLowerCase().trim();
+            if (!query) {
+                renderProductList(allGoodsData);
+                return;
+            }
+            
+            const filtered = allGoodsData.filter(product => {
+                // 搜尋品名 (name)
+                return product.name && product.name.toLowerCase().includes(query);
+            });
+            
+            renderProductList(filtered);
+        }
+
+        // 函式: 打開商品選擇抽屜
+        function openProductDrawer(row) {
+            currentEditingRow = row; // 記錄目前正在編輯的行
+            document.getElementById('product-drawer').classList.add('open');
+            document.getElementById('product-search').value = ''; // 清空上次的搜尋
+            //document.getElementById('product-search').focus();
+            filterProducts(); // 重置並顯示所有產品
+        }
+
+        // 函式: 關閉商品選擇抽屜
+        function closeProductDrawer() {
+            document.getElementById('product-drawer').classList.remove('open');
+            currentEditingRow = null;
+        }
+
+        // 函式: 選擇商品並填充到表格行
+        function selectProduct(event) {
+            // 獲取被點擊的單位按鈕
+            const unitButton = event.currentTarget; 
+            
+            // 從 dataset 中讀取我們需要的精確資料
+            const productName = unitButton.dataset.productName;
+            const selectedUnitValue = unitButton.dataset.unitValue; // 例如: '30kg'
+            const unitCode = unitButton.dataset.unitName; // 例如: 'unit1'
+            
+            console.log("已選擇的單位細節:", {
+                品名: productName,
+                選中單位代碼: unitCode,
+                選中單位值: selectedUnitValue
+            });
+
+            if (currentEditingRow) {
+                // 填充品名
+                currentEditingRow.querySelector('.item-name').value = productName + selectedUnitValue;
+                
+                // 填充單位: 使用被點擊的具體單位值
+                //currentEditingRow.querySelector('.item-unit').value = selectedUnitValue; 
+
+                // 假設貨品編號可以設為單位代碼 (可依實際需求修改)
+                //currentEditingRow.querySelector('.item-code').value = unitCode; 
+
+                // 清空數量和單價，等待使用者輸入 (如果它們原本是空的)
+                if (!currentEditingRow.querySelector('.item-quantity').value) {
+                    currentEditingRow.querySelector('.item-quantity').value = 1;
+                }
+                if (!currentEditingRow.querySelector('.item-price').value) {
+                    currentEditingRow.querySelector('.item-price').value = 0;
+                }
+
+                updateCalculations();
+                
+                alertBox(`已選取品項: ${productName} (${selectedUnitValue})`, 'success');
+            }
+            closeProductDrawer();
+        }
+
+        // 函式: 為品名輸入框附加點擊事件 (使用事件委託)
+        function attachProductSearchListeners() {
+            const tableBody = document.getElementById('product-table').getElementsByTagName('tbody')[0];
+            tableBody.addEventListener('click', (event) => {
+                const target = event.target;
+                // 檢查被點擊的是否是品名輸入框 (設有 .item-name 且是 input 元素)
+                if (target.classList.contains('item-name') && target.tagName === 'INPUT') {
+                    const row = target.closest('tr');
+                    openProductDrawer(row);
+                }
+            });
+        }
+
+        // --- 產品計算邏輯 (保持不變) ---
+        function updateCalculations() {
+            const tableBody = document.getElementById('product-table').getElementsByTagName('tbody')[0];
+            let totalSubtotal = 0;
+
+            Array.from(tableBody.rows).forEach(row => {
+                const quantity = parseFloat(row.querySelector('.item-quantity').value) || 0;
+                const price = parseFloat(row.querySelector('.item-price').value) || 0;
+
+                const rowSubtotal = (quantity * price);
+                row.querySelector('.item-subtotal').value = rowSubtotal.toFixed(0); 
+                totalSubtotal += rowSubtotal;
+            });
+
+            const discount = parseFloat(document.getElementById('discount').value) || 0;
+            const grandTotal = totalSubtotal - discount;
+
+            document.getElementById('subtotal').value = totalSubtotal.toFixed(0);
+            document.getElementById('grand-total').value = grandTotal.toFixed(0);
+        }
+
+        // --- 產品行管理邏輯 (保持不變) ---
+        let rowCounter = 1;
+        function addRow() {
+            const tableBody = document.getElementById('product-table').getElementsByTagName('tbody')[0];
+            rowCounter++;
+            const newRow = tableBody.insertRow();
+            newRow.innerHTML = `
+                <td>${rowCounter}</td>
+                <td><input type="text" class="item-code"></td>
+                <td><input type="text" class="item-date"></td>
+                <td><input type="text" class="item-name"></td>
+                <td><input type="number" class="item-quantity" value="0" min="0" oninput="updateCalculations()"></td>
+                <td><input type="number" class="item-price" value="0" min="0" oninput="updateCalculations()"></td>
+                <td><input type="number" class="item-subtotal" value="0" readonly></td>
+                <td><input type="text" class="item-math"></td>
+                <td><input type="text" class="item-note"></td>
+                <td><button onclick="deleteRow(this)" class="delete-row-btn" style="padding: 3px 6px; background: none; border: none; color: #ff0000; cursor: pointer;"><i class="fas fa-trash"></i></button></td>
+            `;
+            updateRowSequences();
+            updateCalculations();
+        }
+
+        function deleteRow(button) {
+            const row = button.closest('tr');
+            row.remove();
+            updateRowSequences();
+            updateCalculations(); 
+            alertBox('產品行已刪除', 'info');
+        }
+
+        function updateRowSequences() {
+            const tableBody = document.getElementById('product-table').getElementsByTagName('tbody')[0];
+            Array.from(tableBody.rows).forEach((row, index) => {
+                row.cells[0].textContent = index + 1;
+            });
+            rowCounter = tableBody.rows.length;
+        }
+
+        // --- 儲存與列印邏輯 (保持不變) ---
+        function saveDocument() {
+            console.log('Document saved successfully!');
+            alertBox('銷售單已儲存！', 'success');
+        }
+
+        function alertBox(message, type = 'info') {
+            const messageBox = document.getElementById('custom-message-box');
+            messageBox.textContent = message;
+            messageBox.style.opacity = 1;
+            messageBox.style.pointerEvents = 'auto'; 
+            messageBox.style.backgroundColor = type === 'success' ? '#4CAF50' : type === 'error' ? '#f44336' : '#2196F3';
+            setTimeout(() => { messageBox.style.opacity = 0; messageBox.style.pointerEvents = 'none'; }, 3000);
+        }
+
+        function printSaleDocument() {
+            updateCalculations();
+            
+            // 填充表單數據到列印模板...
+            document.getElementById('print-document-date').textContent = document.getElementById('document-date').value;
+            document.getElementById('print-document-number').textContent = document.getElementById('document-number').value;
+            document.getElementById('print-customer-name').textContent = document.getElementById('customer-name').value;
+            document.getElementById('print-customer-phone').textContent = document.getElementById('customer-phone').value;
+            document.getElementById('print-delivery-address').textContent = document.getElementById('delivery-address').value;
+            document.getElementById('print-delivery-person').textContent = document.getElementById('delivery-person').value;
+            document.getElementById('print-creator').textContent = document.getElementById('creator').value;
+            document.getElementById('print-subtotal').textContent = document.getElementById('subtotal').value;
+            document.getElementById('print-discount').textContent = document.getElementById('discount').value;
+            document.getElementById('print-grand-total').textContent = document.getElementById('grand-total').value;
+
+            // 填充產品表格
+            const productTableBody = document.getElementById('product-table').getElementsByTagName('tbody')[0];
+            const printTableBody = document.getElementById('print-table-body');
+            printTableBody.innerHTML = ''; 
+            Array.from(productTableBody.rows).forEach((row, index) => {
+                const itemQuantity = row.querySelector('.item-quantity').value;
+                if (parseFloat(itemQuantity) > 0 || row.querySelector('.item-name').value) {
+                    const newRow = printTableBody.insertRow();
+                    newRow.insertCell(0).textContent = index + 1;
+                    newRow.insertCell(1).textContent = row.querySelector('.item-code').value;
+                    newRow.insertCell(2).textContent = row.querySelector('.item-name').value;
+                    newRow.insertCell(3).textContent = itemQuantity;
+                    newRow.insertCell(4).textContent = row.querySelector('.item-price').value;
+                    newRow.insertCell(5).textContent = row.querySelector('.item-subtotal').value;
+                    newRow.insertCell(6).textContent = row.querySelector('.item-note').value;
+                }
+            });
+            window.print();
+        }
+
+        // --- 初始化設定 ---
+        window.onload = function() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('document-date').value = today;
+
+            fetchGoodsData();
+            attachProductSearchListeners();
+            
+            // 初始化行序和計算
+            updateRowSequences();
+            updateCalculations();
+        }
+    </script>
+</body>
+</html>

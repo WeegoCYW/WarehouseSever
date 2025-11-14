@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>倉庫管理介面 - 料桶區塊</title>
+    <style>
+        /* ==================================================================== */
+        /* 倉庫介面全域與主要佈局樣式 */
+        /* ==================================================================== */
+        
+        body {
+            font-family: 'Noto Sans TC', 'Arial', sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 30px;
+            background-color: #f0f0f0;
+            margin: 0;
+        }
+        
+        .header-title {
+            margin: 20px 0;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #333;
+            text-align: center;
+        }
+        
+        /* 整個介面主容器，包含所有料桶區塊 */
+        .main-layout {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 50px; /* 增加不同料桶區塊之間的間距 */
+            width: 100%;
+        }
+        
+        /* ==================================================================== */
+        /* 新增的「料桶分布圖」樣式，用於 12x5 網格佈局 */
+        /* ==================================================================== */
+        
+        .new-bins-area {
+            margin-top: 50px;
+            width: 100%;
+            max-width: 1200px;
+            text-align: center;
+        }
+        
+        .new-storage-bins-container {
+            padding: 20px;
+            border: 2px solid #a0d4ff; /* 藍色邊框 */
+            background-color: #f8fbff; /* 淺藍色背景 */
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+        
+        /* 這裡使用 CSS Grid 來創建 12x5 的網格佈局 */
+        .bin-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 10px;
+        }
+
+        /* =========================== */
+        /* 新增的標題與按鈕的容器樣式 */
+        /* =========================== */
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 1200px;
+            margin-top: 50px;
+        }
+
+        /* 讓標題置中 */
+        .header-container .header-title {
+            margin: 0 auto;
+        }
+
+        /* 新增的「訂單管理」按鈕樣式 */
+        .order-button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            transition: background-color 0.3s ease;
+            white-space: nowrap; /* 防止文字換行 */
+        }
+
+        .order-button:hover {
+            background-color: #0056b3;
+        }
+
+        /* ==================================================================== */
+        /* 料桶項目通用樣式 */
+        /* ==================================================================== */
+        /* 修正後的料桶項目通用樣式，支援多行顯示 */
+        /* ==================================================================== */
+        /* 修正後的料桶項目樣式，確保文字換行顯示 */
+        /* ==================================================================== */
+        
+        .bin-item, .empty-bin {
+            height: 100px; /* 固定高度 */
+            /*width: 85px; /* 固定寬度 */ 
+            padding: 5px; /* 縮小內距，為文字留更多空間 */
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column; /* 垂直排列內容 */
+            justify-content: flex-start; /* 讓內容從上方開始排列 */
+            align-items: center; /* 水平置中 */
+            font-size: 0.9em;
+            text-align: center;
+            box-sizing: border-box;
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+            /*overflow: hidden; /* 隱藏任何溢出的部分，但主要靠調整內容來避免 */
+        }
+        
+        /* 已有內容的料桶 */
+        .bin-item {
+            background-color: #a0d4ff;
+            border: 1px solid #007bff;
+            color: #003366;
+        }
+        
+        .bin-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+        
+        .bin-item h4 {
+            font-size: 1.2em; /* 編號的字體大小 */
+            font-weight: bold;
+            margin: 0;
+            line-height: 1.2; /* 增加行高，讓編號更突出 */
+        }
+        
+        /* 其他三個屬性的樣式 */
+        .bin-info-line {
+            font-size: 1.0em;
+            color: #333;
+            line-height: 1.2;
+            margin-top: 2px;
+            text-align: center;
+            
+            /* 關鍵修正：將 span 變成區塊元素，強制其獨佔一行 */
+            display: block; 
+            white-space: nowrap; /* 讓文字不換行 */
+            overflow: hidden; /* 超出部分隱藏 */
+            text-overflow: ellipsis; /* 超出部分顯示省略號 */
+
+            width: 100%; /* 確保 span 填滿父容器寬度，以便 overflow 和 ellipsis 生效 */
+            
+            /* 確保內容可以自動換行，不受單行限制 */
+            /*white-space: normal;
+            word-break: break-all;*/
+        }
+        
+        /* 空料桶樣式保持不變 */
+        .empty-bin {
+            background-color: transparent; /* 設為透明，讓容器背景色透出來 */
+            border: 1px dashed #e0e0e0; /* 調整邊框顏色以融入背景 */
+            color: #a0d4ff;
+            font-size: 1.2em;
+            pointer-events: none;
+            min-width: 0;
+        }
+        
+        .empty-bin:hover {
+            background-color: transparent;
+        }
+        
+        /* ==================================================================== */
+        /* 彈出視窗 (Modal) 與等待畫面樣式 (保留原有) */
+        /* ==================================================================== */
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 100;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.4);
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-content {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            width: 80%;
+            max-width: 600px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .form-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .form-row label {
+            width: 120px;
+            flex-shrink: 0;
+        }
+        .input-group {
+            flex: 1;
+            display: flex;
+            gap: 10px;
+        }
+        .input-group input, .input-group select, .form-row textarea {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .form-actions button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        #submitBtn {
+            background-color: #28a745;
+            color: white;
+        }
+        #cancelBtn, #deleteBtn {
+            background-color: #dc3545;
+            color: white;
+        }
+        
+        #loadingOverlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.8);
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+        
+        .loading-spinner {
+            border: 8px solid #f3f3f3;
+            border-top: 8px solid #3498db;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="header-container">
+        <a href="order.html" class="order-button">訂單管理</a>
+    </div>
+
+    <div class="new-bins-area">
+        <div class="header-title">料桶分布圖</div>
+        <div class="new-storage-bins-container">
+            <div class="bin-grid" id="binMapContainer"></div>
+        </div>
+    </div>
+
+    <div id="inputModal" class="modal">
+        <div class="modal-content">
+            <h2 id="modalTitle"></h2>
+            <form id="dataForm" method="POST" target="hidden-iframe">
+                <div class="form-row">
+                    <label for="dateInput">日期</label>
+                    <div class="input-group">
+                        <input type="text" id="dateInput" name="日期" placeholder="格式: 2025/07/01">
+                        <select id="dateSelect"></select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <label for="materialInput">輸入原物料</label>
+                    <div class="input-group">
+                        <input type="text" id="materialInput" name="輸入原物料" placeholder="請輸入或選擇原物料">
+                        <select id="materialSelect"></select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <label for="vendorInput">廠商名稱</label>
+                    <div class="input-group">
+                        <input type="text" id="vendorInput" name="廠商名稱" placeholder="請輸入或選擇廠商名稱">
+                        <select id="vendorSelect"></select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <label for="drynessInput">乾燥度</label>
+                    <div class="input-group">
+                        <input type="text" id="drynessInput" name="乾燥度" placeholder="請輸入或選擇乾燥度">
+                        <select id="drynessSelect"></select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <label for="gradeInput">等級</label>
+                    <div class="input-group">
+                        <input type="text" id="gradeInput" name="等級" placeholder="請輸入或選擇等級">
+                        <select id="gradeSelect"></select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <label for="binInput">料桶</label>
+                    <div class="input-group">
+                        <input type="text" id="binInput" name="料桶" placeholder="請輸入或選擇料桶">
+                        <select id="binSelect"></select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <label for="weightInput">總重</label>
+                    <div class="input-group">
+                        <input type="text" id="weightInput" name="總重" placeholder="請輸入或選擇總重">
+                        <select id="weightSelect"></select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <label for="capacityInput">容量</label>
+                    <div class="input-group">
+                        <input type="text" id="capacityInput" name="容量" placeholder="請輸入或選擇容量">
+                        <select id="capacitySelect"></select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <label for="yieldInput">初估碾米率</label>
+                    <div class="input-group">
+                        <input type="text" id="yieldInput" name="初估碾米率" placeholder="請輸入或選擇初估碾米率">
+                        <select id="yieldSelect"></select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <label for="notesTextarea">備註</label>
+                    <textarea id="notesTextarea" name="備註" rows="4" placeholder="在此輸入備註"></textarea>
+                </div>
+                
+                <input type="hidden" id="positionNameInput" name="positionName"> 
+                
+                <div class="form-actions">
+                    <button type="button" id="cancelBtn">取消</button>
+                    <button type="submit" id="submitBtn">完成</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="loadingOverlay" style="display: none;">
+        <div class="loading-spinner"></div>
+        <p>資料處理中...</p>
+    </div>
+
+    <iframe id="hidden-iframe" name="hidden-iframe" style="display: none;"></iframe>
+
+    <script>
+        const scriptURL = "/api/submit";
+        const optionsURL = "/api/data"; // 請替換為您的 Apps Script doGet 網址
+        
+        const modal = document.getElementById('inputModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const dataForm = document.getElementById('dataForm');
+        
+        // 定義需要從 Apps Script 獲取選項的欄位
+        const googleSheetFields = [
+            { input: 'materialInput', select: 'materialSelect', key: '原物料' },
+            { input: 'vendorInput', select: 'vendorSelect', key: '廠商名稱' },
+            { input: 'drynessInput', select: 'drynessSelect', key: '乾燥度' },
+            { input: 'gradeInput', select: 'gradeSelect', key: '等級' },
+            { input: 'binInput', select: 'binSelect', key: '料桶' },
+            { input: 'weightInput', select: 'weightSelect', key: '總重' },
+            { input: 'capacityInput', select: 'capacitySelect', key: '容量' },
+            { input: 'yieldInput', select: 'yieldSelect', key: '初估碾米率' }
+        ];
+    
+        // 獨立處理日期欄位，不與 Google Sheet 串聯
+        const dateInput = document.getElementById('dateInput');
+        const dateSelect = document.getElementById('dateSelect');
+        
+        const cancelBtn = document.getElementById('cancelBtn');
+        const hiddenIframe = document.getElementById('hidden-iframe');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const binMapContainer = document.getElementById('binMapContainer'); // 新增：獲取料桶容器元素
+        
+        dataForm.action = scriptURL;
+        
+        // --- 新增：用來儲存已載入的選項資料 ---
+        let cachedOptions = null;
+        // --- 新增：用來儲存已載入的料桶地圖資料 ---
+        let cachedBinMapData = null;
+        // ------------------------------------
+        
+        function showLoading() {
+            loadingOverlay.style.display = 'flex';
+        }
+        
+        function hideLoading() {
+            loadingOverlay.style.display = 'none';
+        }
+        
+        // 將所有下拉式選單設為禁用
+        function disableSelects() {
+            googleSheetFields.forEach(field => {
+                const selectElement = document.getElementById(field.select);
+                if (selectElement) {
+                    selectElement.disabled = true;
+                }
+            });
+            dateSelect.disabled = true;
+        }
+        
+        // 將所有下拉式選單恢復為啟用
+        function enableSelects() {
+            googleSheetFields.forEach(field => {
+                const selectElement = document.getElementById(field.select);
+                if (selectElement) {
+                    selectElement.disabled = false;
+                }
+            });
+            dateSelect.disabled = false;
+        }
+        
+        // 根據傳入的資料填充下拉式選單
+        function populateAllDropdowns(data) {
+            googleSheetFields.forEach(field => {
+                const selectElement = document.getElementById(field.select);
+                if (selectElement && data[field.key]) {
+                    populateDropdown(selectElement, data[field.key]);
+                }
+            });
+        }
+        
+        // 修改 fetchOptions 函式，檢查緩存
+        function fetchOptions() {
+            // 如果已經有緩存資料，直接使用
+            if (cachedOptions) {
+                console.log('Using cached options.');
+                populateAllDropdowns(cachedOptions);
+                enableSelects();
+                return Promise.resolve(); // 返回一個已解決的 Promise，以保持鏈式調用的一致性
+            }
+        
+            // 如果沒有緩存資料，才發送請求
+            showLoading();
+            disableSelects();
+        
+            return fetch(optionsURL) // 返回 Promise
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok.');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Fetched new options, caching them.');
+                    // 檢查 data 格式，確保它包含下拉選單資料
+                    if (data.dropdownOptions) {
+                        cachedOptions = data.dropdownOptions; // 儲存資料到緩存
+                        populateAllDropdowns(data.dropdownOptions);
+                    } else {
+                        cachedOptions = data;
+                        populateAllDropdowns(data);
+                    }
+                    enableSelects();
+                    hideLoading();
+                })
+                .catch(error => {
+                    console.error('Error fetching options:', error);
+                    alert('無法載入下拉選單選項。');
+                    enableSelects();
+                    hideLoading();
+                    throw error; // 重新拋出錯誤，讓呼叫方知道失敗了
+                });
+        }
+        
+        // 填充下拉選單的通用函式
+        function populateDropdown(selectElement, optionsArray) {
+            selectElement.innerHTML = '';
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = '▼';
+            selectElement.appendChild(defaultOption);
+        
+            optionsArray.forEach(optionText => {
+                const option = document.createElement('option');
+                option.value = optionText;
+                option.textContent = optionText;
+                selectElement.appendChild(option);
+            });
+        }
+        
+        // 專門用於填充日期下拉選單的函式
+        function populateDateDropdown(daysCount) {
+            const dateSelect = document.getElementById('dateSelect');
+            dateSelect.innerHTML = '';
+            
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = '▼';
+            dateSelect.appendChild(defaultOption);
+        
+            const today = new Date();
+            for (let i = 0; i < daysCount; i++) {
+                const date = new Date();
+                date.setDate(today.getDate() - i);
+                const year = date.getFullYear();
+                const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                const day = date.getDate().toString().padStart(2, '0');
+                const formattedDate = `${year}/${month}/${day}`;
+        
+                const option = document.createElement('option');
+                option.value = formattedDate;
+                option.textContent = formattedDate;
+                dateSelect.appendChild(option);
+            }
+        }
+        
+        // =========================================================
+        // 根據後端資料動態生成料桶地圖
+        // =========================================================
+        function generateAndRenderBins(binMapData = []) {
+            if (!binMapContainer) {
+                console.error('找不到 ID 為 "binMapContainer" 的元素。');
+                return;
+            }
+            
+            binMapContainer.innerHTML = ''; // 清空容器
+            const numCols = 12; // 12 列
+            const numRows = 5;  // 5 行
+            
+            // 建立一個 Map，方便透過 binName 快速查詢到整個物件
+            const dataMap = new Map(binMapData.map(item => [item.positionName, item]));
+            
+            for (let row = 1; row <= numRows; row++) {
+                for (let col = 1; col <= numCols; col++) {
+                    const positionName = `${col}-${row}`;
+                    
+                    // 透過 positionName 從 dataMap 中獲取整個物件
+                    const binObject = dataMap.get(positionName) || {
+                        positionName: positionName, // 確保空料桶也有 positionName
+                        binName: '',
+                        item: '',
+                        date: '',
+                        vendor: ''
+                    };
+                    
+                    let binElement;
+                    
+                    // 使用後端傳來的獨立屬性來判斷是否為空料桶
+                    // 修正的邏輯：只要 binValue 有內容，就視為非空料桶
+                    if (binObject.binValue) { 
+                        binElement = document.createElement('div');
+                        binElement.className = 'bin-item';
+                        
+                        // 直接使用物件屬性生成多行 HTML 內容
+                        binElement.innerHTML = `
+                            <h4>${binObject.binName}</h4>
+                            <span class="bin-info-line">${binObject.item}</span>
+                            <span class="bin-info-line">${binObject.date}</span>
+                            <span class="bin-info-line">${binObject.vendor}</span>
+                        `;
+                        
+                        // 儲存原始資料以供彈出視窗使用
+                        binElement.dataset.positionName = binObject.positionName; // 將 positionName 儲存為 data-position-name
+                        binElement.dataset.binName = binObject.binName;
+                        binElement.dataset.material = binObject.item;
+                        binElement.dataset.date = binObject.date;
+                        binElement.dataset.vendor = binObject.vendor;
+                        
+                        // 只有非空料桶才新增點擊事件
+                        binElement.addEventListener('click', () => {
+                            openModal(binElement);
+                        });
+                        
+                    } else {
+                        // 儲存格為空，顯示料桶代號
+                        binElement = document.createElement('div');
+                        binElement.className = 'empty-bin';
+                        binElement.innerHTML = `<h4>${binObject.binName}</h4>`;
+                        binElement.dataset.positionName = binObject.positionName;// 空料桶也需要 positionName 來定位
+                    }
+                    
+                    // 所有的料桶元素都應該有 binName
+                    binElement.dataset.binName = binObject.binName;
+                    
+                    // // 新增點擊事件監聽器
+                    // binElement.addEventListener('click', () => {
+                    //     openModal(binElement);
+                    // });
+                    
+                    // 將元素添加到容器中
+                    binMapContainer.appendChild(binElement);
+                }
+            }
+        }
+        
+        // =========================================================
+        // 新增：用 fetch 從後端獲取地圖資料的函式
+        // 修正：用 fetch 從後端獲取地圖資料的函式，並檢查緩存
+        // =========================================================
+        function fetchBinMapData() {
+            // 如果已經有緩存資料，直接使用
+            if (cachedBinMapData) {
+                console.log('Using cached bin map data.');
+                generateAndRenderBins(cachedBinMapData);
+                return Promise.resolve(cachedBinMapData);
+            }
+            
+            // 如果沒有緩存資料，才發送請求
+            showLoading();
+            return fetch(optionsURL)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok.');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Fetched new bin map data, caching it.');
+                    if (data.binMapData) {
+                        cachedBinMapData = data.binMapData;
+                        generateAndRenderBins(cachedBinMapData);
+                        return data.binMapData;
+                    }
+                    // 如果後端返回格式不是物件，直接使用 data
+                    cachedBinMapData = data;
+                    generateAndRenderBins(cachedBinMapData);
+                    return data;
+                })
+                .catch(error => {
+                    console.error('Error fetching bin map data:', error);
+                    alert('無法從 Google 表單載入地圖資料，將顯示空白地圖。');
+                    generateAndRenderBins(); // 呼叫無參數版本，生成空網格
+                    throw error;
+                })
+                .finally(() => {
+                    hideLoading();
+                });
+        }
+        
+        // =========================================================
+        // 修改：頁面載入時，先嘗試從後端讀取地圖資料，失敗則使用備用方案
+        // =========================================================
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchBinMapData()
+                .then(binMapData => {
+                    console.log('成功載入地圖資料，渲染地圖。');
+                    generateAndRenderBins(binMapData);
+                })
+                .catch(() => {
+                    console.log('無法從後端讀取地圖資料，渲染備用空地圖。');
+                    alert('無法從 Google 表單載入地圖資料，將顯示空白地圖。');
+                    generateAndRenderBins(); // 呼叫無參數版本，生成空網格
+                });
+        });
+        
+        function openModal(itemElement) {
+            dataForm.reset();
+            populateDateDropdown(10);
+            fetchOptions();
+            
+            const binName = itemElement.dataset.binName;
+            const positionName = itemElement.dataset.positionName; //從點擊的元素 dataset 中獲取 positionName 例如: "1-1"
+            modalTitle.textContent = `輸入 ${binName} 的資料`;
+            
+            document.getElementById('binInput').value = binName;
+            document.getElementById('positionNameInput').value = positionName; // 隱藏欄位
+            
+            if (itemElement.dataset.date) {
+                dateInput.value = itemElement.dataset.date;
+            }
+            if (itemElement.dataset.material) {
+                document.getElementById('materialInput').value = itemElement.dataset.material;
+            }
+            if (itemElement.dataset.vendor) {
+                document.getElementById('vendorInput').value = itemElement.dataset.vendor;
+            }
+        
+            modal.style.display = 'flex';
+        }
+        
+        // 為日期下拉選單添加事件監聽器
+        dateSelect.addEventListener('change', () => {
+            dateInput.value = dateSelect.value;
+        });
+        // =========================================================
+        // 新增：為所有 Google Sheet 相關下拉式選單添加事件監聽器
+        // =========================================================
+        googleSheetFields.forEach(field => {
+            const inputElement = document.getElementById(field.input);
+            const selectElement = document.getElementById(field.select);
+            
+            if (inputElement && selectElement) {
+                selectElement.addEventListener('change', () => {
+                    inputElement.value = selectElement.value;
+                });
+            }
+        });
+         
+        cancelBtn.addEventListener('click', () => {
+            modal.style.display = 'none';
+        });
+        
+        window.addEventListener('click', (event) => {
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        });
+        
+        // =========================================================
+        // 修改：表單提交成功後重新載入地圖
+        // =========================================================
+        hiddenIframe.addEventListener('load', () => {
+            if (dataForm.dataset.submitting === 'true') {
+                loadingOverlay.style.display = 'none';
+                alert('資料已成功傳送！');
+                modal.style.display = 'none';
+                dataForm.reset();
+                dataForm.dataset.submitting = 'false';
+
+                //提交後，重設mapdata
+                cachedBinMapData = null;
+                
+                // 提交成功後，重新獲取並渲染地圖資料
+                fetchBinMapData()
+                    .then(binMapData => {
+                        generateAndRenderBins(binMapData);
+                    })
+                    .catch(error => {
+                        console.error('資料已成功提交，但無法重新載入地圖。', error);
+                        alert('資料已成功提交，但無法重新載入地圖。');
+                        // 即使重新載入失敗，也要至少渲染空地圖
+                        generateAndRenderBins();
+                    });
+            }
+        });
+        
+        dataForm.addEventListener('submit', () => {
+            dataForm.dataset.submitting = 'true';
+            loadingOverlay.style.display = 'flex';
+        });
+    </script>
+</body>
+</html>
