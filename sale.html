@@ -222,13 +222,14 @@
             top: 0;
             right: 0;
             width: 100%;
-            max-width: 450px; /* 寬度限制 */
+            max-width: 850px; /* 寬度限制 */
             height: 100%;
             background: white;
             box-shadow: -4px 0 10px rgba(0, 0, 0, 0.1);
             transform: translateX(100%);
             transition: transform 0.3s ease-in-out;
             z-index: 50;
+            overflow-y: auto;
         }
         #product-drawer.open {
             transform: translateX(0);
@@ -236,15 +237,17 @@
         
         /* 列表樣式 */
         .product-item-container {
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 12px;
+            display: flex;
+            flex-wrap: wrap;
+            padding: 6px 4px;
             background-color: #f9fafb;
         }
         .unit-button {
             transition: all 0.15s;
             cursor: pointer;
+            white-space: pre-line; /* 給定空白換行 */
+            margin: 0px;
+            width: auto;
         }
         .unit-button:hover {
             background-color: #d1d5db;
@@ -290,50 +293,41 @@
 
         <div class="info-grid">
             <div class="info-item">
-                <label for="document-date">單據日期:</label>
-                <input type="date" id="document-date">
+                <input type="date" id="document-date" placeholder="單據日期:">
             </div>
             <div class="info-item">
-                <label for="document-number">單據編號:</label>
-                <input type="text" id="document-number">
+                <input type="text" id="document-number" placeholder="單據編號:">
             </div>
             
             <!-- 客戶編號 - 新增 oninput 事件 -->
             <div class="info-item">
-                <label for="customer-id">客戶編號:</label>
-                <input type="text" id="customer-id" oninput="searchCustomer()">
+                <input type="text" id="customer-id" placeholder="客戶編號:" oninput="searchCustomer()">
             </div>
             
             <!-- 客戶名稱 - 新增 oninput 事件 -->
             <div class="info-item">
-                <label for="customer-name">客戶名稱:</label>
-                <input type="text" id="customer-name" oninput="searchCustomer()">
+                <input type="text" id="customer-name" placeholder="客戶名稱:" oninput="searchCustomer()">
             </div>
             
             <!-- 客戶電話 - oninput 事件已保留 -->
             <div class="info-item">
-                <label for="customer-phone">客戶電話:</label>
-                <input type="tel" id="customer-phone" oninput="searchCustomer()">
+                <input type="tel" id="customer-phone" placeholder="客戶電話:" oninput="searchCustomer()">
             </div>
             
             <!-- 送貨地址 - 新增 oninput 事件 -->
             <div class="info-item">
-                <label for="delivery-address">送貨地址:</label>
-                <input type="text" id="delivery-address" oninput="searchCustomer()">
+                <input type="text" id="delivery-address" placeholder="送貨地址:" oninput="searchCustomer()">
             </div>
             
             <!-- 其他欄位保持不變 -->
             <div class="info-item">
-                <label for="delivery-person">送貨員:</label>
-                <input type="text" id="delivery-person">
+                <input type="text" id="delivery-person" placeholder="送貨員:">
             </div>
             <div class="info-item">
-                <label for="creator">製單人員:</label>
-                <input type="text" id="creator">
+                <input type="text" id="creator" placeholder="製單人員:">
             </div>
             <div class="info-item">
-                <label for="invoice-number">發票號碼:</label>
-                <input type="text" id="invoice-number">
+                <input type="text" id="invoice-number" placeholder="發票號碼:">
             </div>
         </div>
 
@@ -635,9 +629,10 @@
                 let unitFound = false;
 
                 // 2. 遍歷 unit1 到 unit9，為每個有效單位創建一個按鈕
-                for (let i = 1; i <= 9; i++) {
+                for (let i = 1; i <= 3; i++) {
                     const unitNameKey = 'unit' + i; // 'unit1', 'unit2', ...
                     const unitValue = product[unitNameKey]; // 獲取對應的單位值 (例如: '30kg')
+                    const uniStore = product[unitNameKey + 1];
 
                     // 檢查單位是否有值 (非空、非 null、非空白字串)
                     if (unitValue && unitValue.toString().trim() !== '') { 
@@ -648,7 +643,11 @@
                         unitButton.className = 'unit-button px-3 py-2 bg-gray-200 text-gray-700 rounded-md font-semibold text-sm';
                         
                         // 顯示單位值 (例如: 30kg)
-                        unitButton.textContent = unitValue;
+                        // unitButton.textContent = product.name + '\n' + unitValue + '\n' + '庫存:' + uniStore;
+                        unitButton.innerHTML = `
+                            ${product.name}\n${unitValue}
+                            <span class="text-green-600">庫存: ${uniStore}</span>
+                        `;
                         
                         // 將需要的資料綁定到 dataset (非常重要！)
                         unitButton.dataset.productName = product.name;
@@ -782,6 +781,13 @@
             document.getElementById('grand-total').value = grandTotal.toFixed(0);
         }
 
+        // --- 增加初始列數 ---
+        function createInitialRows(count) {
+            for (let i = 1; i <= count; i++) {
+                addRow();
+            }
+        }
+
         // --- 產品行管理邏輯 (保持不變) ---
         let rowCounter = 1;
         function addRow() {
@@ -877,6 +883,7 @@
 
             fetchGoodsData();
             attachProductSearchListeners();
+            createInitialRows(4);
             
             // 初始化行序和計算
             updateRowSequences();
