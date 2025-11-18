@@ -181,26 +181,21 @@ def get_goods_data():
         # 從第二行開始遍歷數據
         for row in goods_sheet.iter_rows(min_row=2):
             # 將行數據轉換為字串
-            row_data = [str(cell.value or '').strip() for cell in row]
+            # row_data = [str(cell.value or '').strip() for cell in row]
+            row_dict = {headers[i]: (str(cell.value).strip() if cell.value else '') 
+                        for i, cell in enumerate(row)}
             
-            # 將行數據映射到字典
-            item = {}
-            for i, header in enumerate(headers):
-                if i < len(row_data):
-                    item[header] = row_data[i]
+            # # 將行數據映射到字典
+            # item = {}
+            # for i, header in enumerate(headers):
+            #     if i < len(row_data):
+            #         item[header] = row_data[i]
             
             # 為了前端方便，將中文 key 轉換為英文 key
             formatted_item = {
-                'name': item.get('品名', ''),
-                'unit1': item.get('單位1', ''),
-                'unit2': item.get('單位2', ''),
-                'unit3': item.get('單位3', ''),
-                'unit4': item.get('單位4', ''),
-                'unit5': item.get('單位5', ''),
-                'unit6': item.get('單位6', ''),
-                'unit7': item.get('單位7', ''),
-                'unit8': item.get('單位8', ''),
-                'unit9': item.get('單位9', '')
+                'name': row_dict.get('品名', ''),
+                'spec': row_dict.get('規格', ''),
+                'stock': row_dict.get('庫存', ''),
             }
             goods_data.append(formatted_item)
 
