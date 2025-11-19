@@ -589,7 +589,7 @@
                 allGoodsData = await response.json();
                 console.log('商品資料載入成功:', allGoodsData.length, '筆');
                 console.log(allGoodsData);
-                //renderProductList(allGoodsData); // 渲染初始列表
+                renderProductList(allGoodsData); // 渲染初始列表
             } catch (error) {
                 console.error('載入商品資料 API 發生錯誤:', error);
                 document.getElementById('product-list').innerHTML = `<div style="padding: 20px; color: red;">載入商品失敗: ${error.message}</div>`;
@@ -626,29 +626,44 @@
                 // 使用 grid 讓單位按鈕整齊排列
                 unitsDiv.className = 'grid grid-cols-2 gap-2 mt-2';
                 
-                    
-                // 創建獨立的可點擊按鈕
-                const unitButton = document.createElement('button');
-                unitButton.className = 'unit-button px-3 py-2 bg-gray-200 text-gray-700 rounded-md font-semibold text-sm';
-                
-                // 顯示單位值 (例如: 30kg)
-                // unitButton.textContent = product.name + '\n' + unitValue + '\n' + '庫存:' + uniStore;
-                unitButton.innerHTML = `
-                    ${product.name}\n${product.spec}
-                    <span class="text-green-600">庫存: ${product.stock}</span>
-                `;
-                
-                // 將需要的資料綁定到 dataset (非常重要！)
-                unitButton.dataset.productName = product.name;
-                unitButton.dataset.unitName = product.spec; // 30kg, 15kg, ...
-                unitButton.dataset.unitValue = product.stock; // 庫存, ...
-                // 可以選擇性地保留完整的 JSON 序列化，但這裡只需要單一單位資訊
-                // unitButton.dataset.fullProduct = JSON.stringify(product); 
+                let unitFound = false;
 
-                // 3. 將點擊事件綁定到這個單位按鈕
-                unitButton.onclick = (e) => selectProduct(e);
+                // 2. 遍歷 unit1 到 unit9，為每個有效單位創建一個按鈕
+                for (let i = 1; i <= 9; i++) {
+                    const unitNameKey = 'unit' + i; // 'unit1', 'unit2', ...
+                    const unitValue = product[unitNameKey]; // 獲取對應的單位值 (例如: '30kg')
 
-                unitsDiv.appendChild(unitButton);
+                    // 檢查單位是否有值 (非空、非 null、非空白字串)
+                    if (unitValue && unitValue.toString().trim() !== '') { 
+                        unitFound = true;
+                        
+                        // 創建獨立的可點擊按鈕
+                        const unitButton = document.createElement('button');
+                        unitButton.className = 'unit-button px-3 py-2 bg-gray-200 text-gray-700 rounded-md font-semibold text-sm';
+                        
+                        // 顯示單位值 (例如: 30kg)
+                        unitButton.textContent = product.name + '\n' + unitValue;
+                        
+                        // 將需要的資料綁定到 dataset (非常重要！)
+                        unitButton.dataset.productName = product.name;
+                        unitButton.dataset.unitName = unitNameKey; // unit1, unit2, ...
+                        unitButton.dataset.unitValue = unitValue; // 30kg, 15kg, ...
+                        // 可以選擇性地保留完整的 JSON 序列化，但這裡只需要單一單位資訊
+                        // unitButton.dataset.fullProduct = JSON.stringify(product); 
+
+                        // 3. 將點擊事件綁定到這個單位按鈕
+                        unitButton.onclick = (e) => selectProduct(e);
+
+                        unitsDiv.appendChild(unitButton);
+                    }
+                }
+                
+                if (!unitFound) {
+                     const noUnitMsg = document.createElement('p');
+                     noUnitMsg.className = 'text-gray-500 italic text-sm p-2 text-center';
+                     noUnitMsg.textContent = '此商品沒有可用的單位資訊。';
+                     unitsDiv.appendChild(noUnitMsg);
+                }
 
                 productContainer.appendChild(unitsDiv);
                 listDiv.appendChild(productContainer);
@@ -704,7 +719,7 @@
 
             if (currentEditingRow) {
                 // 填充品名
-                currentEditingRow.querySelector('.item-name').value = productName + unitCode;
+                currentEditingRow.querySelector('.item-name').value = productName + selectedUnitValue;
                 
                 // 填充單位: 使用被點擊的具體單位值
                 //currentEditingRow.querySelector('.item-unit').value = selectedUnitValue; 
