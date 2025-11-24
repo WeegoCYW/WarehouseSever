@@ -38,6 +38,8 @@ DATA_SHEET_NAME = 'test'
 CUSTOMER_SHEET_NAME = 'sale_sheet_data'
 # 新增商品資料工作表名稱
 GOODS_SHEET_NAME = 'goods_sheet'
+# 銷售下拉式選單
+SALE_ROWDOWN_NAME = 'rowdown_order'
 
 # 檢查 Excel 檔案是否存在，如果不存在則創建一個新的並初始化工作表
 if not os.path.exists(EXCEL_FILE):
@@ -48,6 +50,7 @@ if not os.path.exists(EXCEL_FILE):
         wb.create_sheet(DATA_SHEET_NAME, 2)
         wb.create_sheet(CUSTOMER_SHEET_NAME, 3) # 新增客戶資料表
         wb.create_sheet(GOODS_SHEET_NAME, 4) # 新增商品資料表
+        wb.create_sheet(SALE_ROWDOWN_NAME, 5)
         wb.remove(wb['Sheet'])
 
         wb.save(EXCEL_FILE)
@@ -204,6 +207,71 @@ def get_goods_data():
     except Exception as e:
         traceback.print_exc()
         return jsonify({"status": "error", "message": f"讀取商品資料時發生錯誤: {str(e)}"}), 500
+    
+# --------------------------------------------------------------------------------
+# API 路由 - 獲取銷售頁面下拉式選單資料 (GET)
+# --------------------------------------------------------------------------------
+@app.route('/api/rowdown_order', methods=['GET'])
+def get_rowdown_data():
+    # 將 Excel 標題與 JSON 鍵名的對應關係定義在函式內部
+    HEADER_TO_JSON_KEY = {
+        '計價單位': 'pricingUnits',
+        '銷售方式': 'salesMethods',
+        '製單人員': 'creatorNames',
+        '送貨員': 'deliveryPeople',
+        '車號': 'carNumbers',
+    }  
+    try:
+        wb = openpyxl.load_workbook(EXCEL_FILE)
+        
+        if SALE_ROWDOWN_NAME not in wb.sheetnames:
+            return jsonify({"status": "error", "message": f"Excel中找不到工作表: {SALE_ROWDOWN_NAME}"}), 500
+            
+        options_sheet = wb[SALE_ROWDOWN_NAME]
+        options_values = list(options_sheet.values)
+        
+        lookup_data = {}
+
+        if options_values:
+            # 2. 提取標頭 (第一行) 和數據行 (從第二行開始)
+            options_header = options_values[0]
+            options_data_rows = options_values[1:]
+            
+            # 3. 遍歷每個欄位，提取數據並進行鍵名轉換
+            for col_index, header in enumerate(options_header):
+                # 檢查標頭是否在我們需要的對應列表中
+                # 使用 str() 確保 header 是一個字串，以避免 NoneType 錯誤
+                if isinstance(header, str) and header in HEADER_TO_JSON_KEY:
+                    
+                    # 獲取目標 JSON 鍵名
+                    json_key = HEADER_TO_JSON_KEY[header]
+                    options_list = []
+                    seen_options = set() # 用於去重 (優化)
+                    
+                    # 遍歷所有數據行，提取該欄位的值
+                    for row in options_data_rows:
+                        # 檢查該行在當前欄位是否有值
+                        if len(row) > col_index and row[col_index] is not None:
+                            value = str(row[col_index]).strip()
+                            
+                            # 檢查值是否非空且尚未出現過
+                            if value and value not in seen_options:
+                                seen_options.add(value)
+                                options_list.append(value)
+                                
+                    # 將結果存入字典，使用轉換後的 JSON 鍵名
+                    lookup_data[json_key] = options_list
+
+        # 4. 返回 JSON 格式的下拉選單數據
+        return jsonify({
+            "lookupData": lookup_data
+        })
+        
+    except FileNotFoundError:
+        return jsonify({"status": "error", "message": f"找不到 Excel 檔案: {EXCEL_FILE}"}), 500
+    except Exception as e:
+        traceback.print_exc()# 輸出錯誤堆棧，方便除錯
+        return jsonify({"status": "error", "message": f"處理資料時發生錯誤: {str(e)}"}), 500
 
 
 # =========================================================
