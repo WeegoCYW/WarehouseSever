@@ -14,14 +14,14 @@
             padding: 20px;
             background-color: #f0f0f0;
             display: flex;
-            justify-content: center;
+            justify-content: left;
             /* 允許內容在抽屜滑出時不被截斷 */
             position: relative;
             min-height: 100vh;
         }
         .sale-form-container {
             width: 100%;
-            max-width: 1200px;
+            max-width: 1400px;
             background-color: #fff;
             padding: 20px;
             border-radius: 8px;
@@ -320,8 +320,20 @@
             </div>
             
             <!-- 其他欄位保持不變 -->
+            <!-- 送貨員 (deliveryPeople) - ID 需與 JSON 鍵名一致 -->
             <div class="info-item">
-                <input type="text" id="delivery-person" placeholder="送貨員:">
+                <select id="deliveryPeople" class="select-style">
+                    <option value="" disabled selected>送貨員: 載入中...</option>
+                </select>
+            </div>
+            <!-- 車號 (carNumbers) - ID 需與 JSON 鍵名一致 -->
+            <div class="info-item">
+                <select id="carNumbers" class="select-style">
+                    <option value="" disabled selected>車號: 載入中...</option>
+                </select>
+            </div>
+            <div class="info-item">
+                <input type="text" id="delivery-disten" placeholder="距離:">
             </div>
             <div class="info-item">
                 <input type="text" id="creator" placeholder="製單人員:">
@@ -340,16 +352,17 @@
             <table class="product-table" id="product-table">
                 <thead>
                     <tr>
-                        <th style="width: 5%;">序</th>
-                        <th style="width: 9%;">貨品編號</th>
-                        <th style="width: 11%;">日期</th>
-                        <th style="width: 25%;">品名</th>
-                        <th style="width: 7%;">數量</th>
-                        <th style="width: 11%;">單價</th>
-                        <th style="width: 11%;">銷貨小計</th>
-                        <th style="width: 12%;">銷售方式</th>
-                        <th style="width: 10%;">附註</th>
-                        <th style="width: 5%;">操作</th>
+                        <th style="width: 1%;">序</th>
+                        <th style="width: 7%;">貨品編號</th>
+                        <th style="width: 9%;">日期</th>
+                        <th style="width: 23%;">品名</th>
+                        <th style="width: 5%;">數量</th>
+                        <th style="width: 9%;">單價</th>
+                        <th style="width: 9%;">計價單位</th>
+                        <th style="width: 9%;">銷貨小計</th>
+                        <th style="width: 10%;">銷售方式</th>
+                        <th style="width: 15%;">附註</th>
+                        <th style="width: 1%;">刪</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -360,6 +373,7 @@
                         <td><input type="text" class="item-name"></td>
                         <td><input type="number" class="item-quantity" value="0" min="0" oninput="updateCalculations()"></td>
                         <td><input type="number" class="item-price" value="0" min="0" oninput="updateCalculations()"></td>
+                        <td><input type="number" class="item-priceLV"></td>
                         <td><input type="number" class="item-subtotal" value="0" readonly></td>
                         <td><input type="text" class="item-math"></td>
                         <td><input type="text" class="item-note"></td>
@@ -406,6 +420,14 @@
         </div>
         <div class="drawer-search-bar">
             <input type="text" id="product-search" placeholder="搜尋品名..." oninput="filterProducts()">
+        </div>
+        <!-- 品名按鈕選擇欄 (Pick Bar) -->
+        <!-- 使用 flex, overflow-x-auto, whitespace-nowrap 實現水平滾動 -->
+        <div class="p-2 border-b drawer-pick-bar bg-gray-100 overflow-x-auto whitespace-nowrap shadow-inner">
+            <div id="pick-bar-list" class="inline-flex space-x-2 p-1">
+                <!-- 品名按鈕將在這裡載入 -->
+                <div class="text-sm text-gray-500 p-1">載入中...</div>
+            </div>
         </div>
         <div class="drawer-content" id="product-list">
             <!-- 產品列表將在這裡載入 -->
@@ -454,7 +476,7 @@
                 <td style="border: none; width: 20%;">審核：</td>
                 <td style="border: none; width: 20%;">製單人員：<span id="print-creator"></span></td>
                 <td style="border: none; width: 20%;">會計：</td>
-                <td style="border: none; width: 20%;">送貨員：<span id="print-delivery-person"></span></td>
+                <td style="border: none; width: 20%;">送貨員：<span id="print-deliveryPeople"></span></td>
                 <td style="border: none; width: 20%;">簽收：</td>
             </tr>
         </table>
@@ -464,10 +486,145 @@
         // --- API 端點設定 ---
         const customerDataURL = "/api/customers";
         const goodsDataURL = "/api/goods"; // 新增商品 API 端點
+        const apiRowdownURL = '/api/rowdown_order';
+
+        // 映射：後端 JSON 鍵名 -> 前端 HTML ID 或 Class
+        const DROPDOWN_MAP = {
+            // Header 欄位 (使用 ID)
+            'deliveryPeople': { key: 'deliveryPeople', selector: '#deliveryPeople' },
+            'carNumbers': { key: 'carNumbers', selector: '#carNumbers' },
+            'creatorNames': { key: 'creatorNames', selector: '#creatorNames' },
+            
+            // Table 欄位 (使用 Class)
+            'pricingUnits': { key: 'pricingUnits', selector: '.item-pricing-unit' },
+            'salesMethods': { key: 'salesMethods', selector: '.item-sales-method' },
+        };
+
+        // 用於儲存後端取得的下拉選單資料，方便新增列時重複使用
+        let dropdownDataCache = {}; 
 
         // --- 商品查詢相關全域變數 ---
         let allGoodsData = []; // 儲存所有商品資料
         let currentEditingRow = null; // 儲存目前正在編輯的表格行 (<tr>)
+
+        //  * 填充指定的下拉選單
+        //  * @param {HTMLElement | NodeListOf<HTMLElement>} elements - <select> 元素或 NodeList
+        //  * @param {Array<string>} dataArray - 要填充的選項陣列
+        //  * @param {string} prompt - 預設提示文字
+         function populateDropdown(elements, dataArray, prompt) {
+            const nodes = elements instanceof NodeList ? elements : [elements];
+
+            nodes.forEach(selectElement => {
+                if (!selectElement) return;
+
+                selectElement.innerHTML = ''; 
+
+                // 1. 加入預設的提示選項
+                const defaultOption = document.createElement('option');
+                defaultOption.value = "";
+                defaultOption.textContent = prompt;
+                defaultOption.disabled = true;
+                defaultOption.selected = true;
+                selectElement.appendChild(defaultOption);
+                
+                // 2. 遍歷數據陣列並加入新選項
+                dataArray.forEach(item => {
+                    const option = document.createElement('option');
+                    option.value = item; 
+                    option.textContent = item;
+                    selectElement.appendChild(option);
+                });
+            });
+        }
+        // * 填充 <datalist> 元素 (Header 欄位)
+        function populateDatalist(datalistElement, dataArray) {
+            if (!datalistElement) return;
+            datalistElement.innerHTML = ''; 
+            
+            dataArray.forEach(item => {
+                const option = document.createElement('option');
+                option.value = item; 
+                datalistElement.appendChild(option);
+            });
+        }
+        //  * 獲取後端資料並填充所有下拉選單
+        async function fetchAndPopulateDropdowns() {
+            try {
+                // 1. 執行 API 呼叫
+                const response = await fetch(apiRowdownURL);
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || '無法從後端獲取資料。');
+                }
+
+                const data = await response.json();
+                const lookupData = data.lookupData;
+                if (!lookupData) {
+                    throw new Error("API 返回結構錯誤，缺少 'lookupData' 欄位。");
+                }
+                
+                // 儲存資料到快取
+                dropdownDataCache = lookupData;
+
+                // 2. 遍歷映射，將資料填入對應的 <select> 元素
+                let populatedCount = 0;
+                
+                for (const mapKey in DROPDOWN_MAP) {
+                    const mapItem = DROPDOWN_MAP[mapKey];
+                    const dataArray = lookupData[mapItem.key] || [];
+                    
+                    // 區分 Header (ID) 和 Table (Class) 的處理方式
+                    if (mapItem.selector.startsWith('#')) {
+                        // Header 欄位 (ID)
+                        const selectElement = document.querySelector(mapItem.selector);
+                        const promptText = selectElement ? selectElement.options[0].textContent.replace(': 載入中...', ': 請選擇') : '請選擇';
+                        
+                        if (selectElement) {
+                             populateDropdown(selectElement, dataArray, promptText);
+                             if (dataArray.length > 0) populatedCount++;
+                        }
+                    } else if (mapItem.selector.startsWith('.')) {
+                        // Table 欄位 (Class) - 僅填充範例列
+                        const selectElements = document.querySelectorAll(mapItem.selector);
+                        let promptText = '請選擇';
+                        if (mapItem.key === 'pricingUnits') promptText = '計價單位';
+                        if (mapItem.key === 'salesMethods') promptText = '銷售方式';
+
+                        if (selectElements.length > 0) {
+                            populateDropdown(selectElements, dataArray, promptText);
+                            // Table 數據不計入 populatedCount，因為 header 已經計數
+                        }
+                    }
+                }
+
+            } catch (error) {
+                // 4. 處理錯誤
+                console.error("載入選單資料失敗:", error);
+                
+                // 錯誤時將所有選單重設為錯誤狀態
+                document.querySelectorAll('.select-style').forEach(selectElement => {
+                    selectElement.innerHTML = `<option value="" disabled selected>載入失敗！</option>`;
+                    selectElement.classList.add('bg-red-50', 'text-red-600');
+                });
+            }
+        }
+        // 新增函式：強制觸發 Datalist 下拉清單
+        function openDatalist(input) {
+            // 檢查 datalist 是否有選項且輸入框為空
+            if (input.list && input.list.options.length > 0 && input.value === '') {
+                // 模擬輸入事件以強制瀏覽器顯示 datalist
+                // 透過暫時設置值並觸發 'input' 事件，可以繞過某些瀏覽器只在輸入時才顯示清單的限制。
+                const originalValue = input.value;
+                
+                // 暫時輸入一個空格，觸發清單
+                input.value = originalValue + ' '; 
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                
+                // 立即恢復原值
+                input.value = originalValue; 
+            }
+        }
 
         // --- 客戶查詢邏輯 ---
 
@@ -579,111 +736,157 @@
 
         // --- 商品查詢邏輯 (新增) ---
 
-        // 函式: 獲取所有商品資料
+        // =========================================================================
+        // 核心修正區：修正 renderProductList 實現多單位點擊
+        // =========================================================================
+
+        // 函式: 獲取所有不重複的品名。
+        function getUniqueProductNames(data) {
+            const names = data.map(item => item.name);
+            return [...new Set(names)].sort();
+        }
+        
+        // 函式: 獲取所有商品資料 
         async function fetchGoodsData() {
             try {
-                const response = await fetch(goodsDataURL);
+                const response = await fetch(goodsDataURL); // 使用模擬 fetch
                 if (!response.ok) {
                     throw new Error(`HTTP 錯誤! 狀態: ${response.status}`);
                 }
                 allGoodsData = await response.json();
-                console.log('商品資料載入成功:', allGoodsData.length, '筆');
-                console.log(allGoodsData);
-                renderProductList(allGoodsData); // 渲染初始列表
+                
+                // 1. 初始化 uniqueProductNames 變數
+                uniqueProductNames = getUniqueProductNames(allGoodsData);
+                
+                // 2. 渲染初始 Pick Bar
+                renderFilter(uniqueProductNames); 
+
             } catch (error) {
                 console.error('載入商品資料 API 發生錯誤:', error);
                 document.getElementById('product-list').innerHTML = `<div style="padding: 20px; color: red;">載入商品失敗: ${error.message}</div>`;
             }
         }
-
-        // =========================================================================
-        // 核心修正區：修正 renderProductList 實現多單位點擊
-        // =========================================================================
-
-        // 函式: 渲染商品列表
-        function renderProductList(products) {
-            const listDiv = document.getElementById('product-list');
-            listDiv.innerHTML = ''; // 清空列表
+        
+        // 函式: 渲染 Pick Bar 中的品名按鈕。
+        function renderFilter(names) {
+            const pickBarList = document.getElementById('pick-bar-list');
+            pickBarList.innerHTML = '';
             
-            if (products.length === 0) {
-                listDiv.innerHTML = '<div class="text-center p-5 text-gray-500 italic">找不到商品資料。</div>';
-                return;
+            if (names.length === 0) {
+                 pickBarList.innerHTML = '<p class="text-sm text-gray-500 p-1">找不到匹配的品名。</p>';
+                 // 清空詳細列表
+                 document.getElementById('product-list').innerHTML = 
+                     '<p class="text-center p-8 text-gray-500 italic">找不到匹配的品名。</p>';
+                 return;
             }
 
-            products.forEach(product => {
-                // 1. 商品主容器
-                const productContainer = document.createElement('div');
-                productContainer.className = 'product-item-container shadow-md';
+            names.forEach(name => {
+                const button = document.createElement('button');
+                button.textContent = name;
+                button.className = 'filter-button flex-shrink-0 px-3 py-1 text-sm rounded-full transition duration-150 ease-in-out ' +
+                                   'bg-white text-gray-700 border border-gray-300 hover:bg-primary-blue hover:text-white hover:border-primary-blue shadow-sm';
+                button.dataset.productName = name;
                 
-                // 產品名稱標題
-                const nameHeader = document.createElement('p');
-                nameHeader.className = 'text-lg font-bold text-gray-800 mb-2 border-b border-gray-200 pb-2';
-                nameHeader.textContent = product.name;
-                productContainer.appendChild(nameHeader);
+                button.onclick = handleFilterClick;
 
-                // 單位列表容器
-                const unitsDiv = document.createElement('div');
-                // 使用 grid 讓單位按鈕整齊排列
-                unitsDiv.className = 'grid grid-cols-2 gap-2 mt-2';
-                
-                let unitFound = false;
-
-                // 2. 遍歷 unit1 到 unit9，為每個有效單位創建一個按鈕
-                for (let i = 1; i <= 9; i++) {
-                    const unitNameKey = 'unit' + i; // 'unit1', 'unit2', ...
-                    const unitValue = product[unitNameKey]; // 獲取對應的單位值 (例如: '30kg')
-
-                    // 檢查單位是否有值 (非空、非 null、非空白字串)
-                    if (unitValue && unitValue.toString().trim() !== '') { 
-                        unitFound = true;
-                        
-                        // 創建獨立的可點擊按鈕
-                        const unitButton = document.createElement('button');
-                        unitButton.className = 'unit-button px-3 py-2 bg-gray-200 text-gray-700 rounded-md font-semibold text-sm';
-                        
-                        // 顯示單位值 (例如: 30kg)
-                        unitButton.textContent = product.name + '\n' + unitValue;
-                        
-                        // 將需要的資料綁定到 dataset (非常重要！)
-                        unitButton.dataset.productName = product.name;
-                        unitButton.dataset.unitName = unitNameKey; // unit1, unit2, ...
-                        unitButton.dataset.unitValue = unitValue; // 30kg, 15kg, ...
-                        // 可以選擇性地保留完整的 JSON 序列化，但這裡只需要單一單位資訊
-                        // unitButton.dataset.fullProduct = JSON.stringify(product); 
-
-                        // 3. 將點擊事件綁定到這個單位按鈕
-                        unitButton.onclick = (e) => selectProduct(e);
-
-                        unitsDiv.appendChild(unitButton);
-                    }
-                }
-                
-                if (!unitFound) {
-                     const noUnitMsg = document.createElement('p');
-                     noUnitMsg.className = 'text-gray-500 italic text-sm p-2 text-center';
-                     noUnitMsg.textContent = '此商品沒有可用的單位資訊。';
-                     unitsDiv.appendChild(noUnitMsg);
-                }
-
-                productContainer.appendChild(unitsDiv);
-                listDiv.appendChild(productContainer);
+                pickBarList.appendChild(button);
             });
+            
+            // 預設選中第一個品名
+            setTimeout(() => {
+                const firstButton = pickBarList.querySelector('.filter-button');
+                if (firstButton) {
+                    // 模擬點擊第一個按鈕，觸發 renderProductDetails
+                    handleFilterClick({ currentTarget: firstButton }); 
+                    
+                    // 滾動到第一個按鈕可見
+                    firstButton.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+                }
+            }, 50); // 確保 DOM 渲染完成
         }
 
-        // 函式: 根據搜尋欄位過濾商品列表
-        function filterProducts() {
-            const query = document.getElementById('product-search').value.toLowerCase().trim();
-            if (!query) {
-                renderProductList(allGoodsData);
+        // 函式: 處理品名篩選器按鈕點擊事件。
+        function handleFilterClick(event) {
+            const productName = event.currentTarget.dataset.productName;
+            
+            document.querySelectorAll('#pick-bar-list .filter-button').forEach(btn => {
+                btn.classList.remove('bg-primary-blue', 'text-white', 'font-semibold', 'border-primary-blue');
+                btn.classList.add('bg-white', 'text-gray-700', 'border-gray-300');
+            });
+
+            event.currentTarget.classList.remove('bg-white', 'text-gray-700', 'border-gray-300');
+            event.currentTarget.classList.add('bg-primary-blue', 'text-white', 'font-semibold', 'border-primary-blue');
+            
+            // 呼叫新增的函數來渲染規格細節
+            renderProductDetails(productName); 
+        }
+
+        // 函式: 渲染選定品名的詳細規格 (取代原有的 renderProductList)
+        function renderProductDetails(productName) {
+            const listDiv = document.getElementById('product-list');
+            listDiv.innerHTML = '';
+            
+            // 篩選出所有與 productName 匹配的商品 (規格/單位)
+            const productsToDisplay = allGoodsData.filter(product => product.name === productName);
+            
+            if (productsToDisplay.length === 0) {
+                listDiv.innerHTML = `<div class="text-center p-8 text-gray-500 italic">找不到品名為 "${productName}" 的規格資料。</div>`;
                 return;
             }
+
+            // 創建網格佈局容器
+            // 規則: 增加 md:grid-cols-4 和 lg:grid-cols-5 
+            // 結果: 手機1欄, 小螢幕2欄, 中螢幕4欄, 大螢幕5欄
+            const gridContainer = document.createElement('div');
+            gridContainer.className = 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 p-4';
             
-            const filtered = allGoodsData.filter(product => {
-                // 搜尋品名 (name)
-                return product.name && product.name.toLowerCase().includes(query);
+            productsToDisplay.forEach(product => {
+                const unitButton = document.createElement('button');
+                unitButton.className = 'unit-button flex flex-col justify-between items-start p-4 bg-white border border-indigo-200 text-gray-800 rounded-lg shadow-md hover:bg-indigo-50 hover:border-indigo-400 transition duration-150 ease-in-out text-left';
+                
+                unitButton.innerHTML = `
+                    <div class="w-full text-base font-bold text-indigo-600">${productName}</div>
+                    <div class="w-full text-base font-bold text-indigo-600">${product.spec}</div>
+                    <div class="w-full text-sm font-semibold mt-1">
+                        庫存: <span class="${product.stock > 0 ? 'text-green-600' : 'text-red-500'}">${product.stock}</span>
+                    </div>
+                `;
+                
+                // 綁定所有必要的資料到 dataset
+                unitButton.dataset.productName = product.name;
+                unitButton.dataset.unitSpec = product.spec; 
+                unitButton.dataset.unitStock = product.stock;
+                
+                unitButton.onclick = (e) => selectProduct(e);
+                
+                gridContainer.appendChild(unitButton);
             });
             
-            renderProductList(filtered);
+            listDiv.appendChild(gridContainer);
+        }
+
+        // 函式: 基礎品名搜尋篩選功能。 (修正: 修正了篩選邏輯，只針對品名)
+        function filterProducts() {
+            const searchTerm = document.getElementById('product-search').value.toLowerCase().trim();
+            
+            if (!uniqueProductNames.length) return;
+
+            let filteredNames = [];
+
+            if (searchTerm === '') {
+                filteredNames = uniqueProductNames;
+            } else {
+                filteredNames = uniqueProductNames.filter(name => name.toLowerCase().includes(searchTerm));
+            }
+            
+            // 重新渲染 Pick Bar
+            renderFilter(filteredNames);
+            
+            // 注意：renderFilter 內部會自動選中第一個並呼叫 renderProductDetails
+            if (filteredNames.length === 0) {
+                document.getElementById('product-list').innerHTML = 
+                    '<p class="text-center p-8 text-gray-500 italic">找不到匹配的品名。</p>';
+            }
         }
 
         // 函式: 打開商品選擇抽屜
@@ -708,18 +911,18 @@
             
             // 從 dataset 中讀取我們需要的精確資料
             const productName = unitButton.dataset.productName;
-            const selectedUnitValue = unitButton.dataset.unitValue; // 例如: '30kg'
-            const unitCode = unitButton.dataset.unitName; // 例如: 'unit1'
+            const productSpec = unitButton.dataset.unitSpec; // 例如: '30kg'
+            const productStock = unitButton.dataset.unitStock; // 例如: 'unit1'
             
             console.log("已選擇的單位細節:", {
                 品名: productName,
-                選中單位代碼: unitCode,
-                選中單位值: selectedUnitValue
+                選中規格: productSpec,
+                選中庫存: productStock
             });
 
             if (currentEditingRow) {
                 // 填充品名
-                currentEditingRow.querySelector('.item-name').value = productName + selectedUnitValue;
+                currentEditingRow.querySelector('.item-name').value = productName + productSpec;
                 
                 // 填充單位: 使用被點擊的具體單位值
                 //currentEditingRow.querySelector('.item-unit').value = selectedUnitValue; 
@@ -737,7 +940,7 @@
 
                 updateCalculations();
                 
-                alertBox(`已選取品項: ${productName} (${selectedUnitValue})`, 'success');
+                alertBox(`已選取品項: ${productName} (${productSpec})`, 'success');
             }
             closeProductDrawer();
         }
@@ -796,6 +999,7 @@
                 <td><input type="text" class="item-name"></td>
                 <td><input type="number" class="item-quantity" value="0" min="0" oninput="updateCalculations()"></td>
                 <td><input type="number" class="item-price" value="0" min="0" oninput="updateCalculations()"></td>
+                <td><input type="number" class="item-priceLV"></td>
                 <td><input type="number" class="item-subtotal" value="0" readonly></td>
                 <td><input type="text" class="item-math"></td>
                 <td><input type="text" class="item-note"></td>
@@ -845,7 +1049,7 @@
             document.getElementById('print-customer-name').textContent = document.getElementById('customer-name').value;
             document.getElementById('print-customer-phone').textContent = document.getElementById('customer-phone').value;
             document.getElementById('print-delivery-address').textContent = document.getElementById('delivery-address').value;
-            document.getElementById('print-delivery-person').textContent = document.getElementById('delivery-person').value;
+            document.getElementById('print-deliveryPeople').textContent = document.getElementById('deliveryPeople').value;
             document.getElementById('print-creator').textContent = document.getElementById('creator').value;
             document.getElementById('print-subtotal').textContent = document.getElementById('subtotal').value;
             document.getElementById('print-discount').textContent = document.getElementById('discount').value;
@@ -877,6 +1081,7 @@
             document.getElementById('document-date').value = today;
 
             fetchGoodsData();
+            fetchAndPopulateDropdowns();
             attachProductSearchListeners();
             createInitialRows(4);
             
